@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ドット絵プロフィール画像メーカー</title>
+  <style>
+    :root {
+      --panel: #1a1f35;
+      --panel-2: #222944;
+      --text: #edf1ff;
+      --muted: #aab3d9;
+      --accent: #7c9cff;
+      --line: #313a60;
+      --editor-bg-a: #141a31;
+      --editor-bg-b: #0b1022;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #0b0e1b, #11162a);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .sub {
+      margin: 0 0 20px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel {
+      background: rgba(26, 31, 53, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, .25);
+      min-width: 0;
+    }
+
+    .panel h2 {
+      margin: 0 0 14px;
+      font-size: 18px;
+    }
+
+    .editor-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .canvas-wrap {
+      background: #0d1122;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    #pixelCanvas {
+      display: block;
+      width: 100%;
+      max-width: 640px;
+      height: auto;
+      aspect-ratio: 1 / 1;
+      margin: 0 auto;
+      image-rendering: pixelated;
+      border-radius: 10px;
+      cursor: crosshair;
+      border: 1px solid #475282;
+      touch-action: none;
+      background: #000;
+    }
+
+    .tools {
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .tool-group {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      min-width: 0;
+    }
+
+    .tool-group h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .palette {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .color-btn {
+      height: 42px;
+      border-radius: 10px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      position: relative;
+      min-width: 0;
+      background: #000;
+    }
+
+    .color-btn.active {
+      border-color: #fff;
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    .color-btn[data-transparent="true"]::after {
+      content: "透過";
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,.8);
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(255,255,255,.08),
+        rgba(255,255,255,.08) 8px,
+        rgba(0,0,0,.15) 8px,
+        rgba(0,0,0,.15) 16px
+      );
+      border-radius: 8px;
+    }
+
+    .btn-row,
+    .palette-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button,
+    .select,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    button,
+    .select {
+      border: 1px solid var(--line);
+      background: #202847;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button:hover,
+    .select:hover {
+      background: #293156;
+    }
+
+    button.primary {
+      background: linear-gradient(180deg, #7c9cff, #6185ff);
+      color: #09132e;
+      font-weight: 700;
+      border: none;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #0f152c;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    input[type="color"] {
+      padding: 0;
+      height: 42px;
+      background: transparent;
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: pointer;
+      display: block;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+
+    input[type="color"]::-webkit-color-swatch,
+    input[type="color"]::-moz-color-swatch {
+      border: none;
+      border-radius: 8px;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 160px;
+      line-height: 1.55;
+    }
+
+    .field + .field {
+      margin-top: 12px;
+    }
+
+    .preview-box {
+      display: grid;
+      gap: 12px;
+      justify-items: start;
+    }
+
+    #previewCanvas {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #fff;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      image-rendering: auto;
+      display: block;
+    }
+
+    .meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .picker-grid,
+    .profile-fields {
+      display: grid;
+      gap: 10px;
+    }
+
+    .inline-grid,
+    .horizontal-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      align-items: end;
+    }
+
+    @media (max-width: 1100px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 920px) {
+      .editor-grid,
+      .inline-grid,
+      .horizontal-fields {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <div class="layout">
+      <section class="panel">
+        <div class="editor-grid">
+          <div class="canvas-wrap">
+            <canvas id="pixelCanvas" width="512" height="512" aria-label="ドット絵エディタ"></canvas>
+          </div>
+
+          <div class="tools">
+            <div class="tool-group">
+              <h3>パレット</h3>
+              <div class="palette" id="palette"></div>
+            </div>
+
+            <div class="tool-group">
+              <h3>カラー</h3>
+              <div class="picker-grid">
+                <div class="field">
+                  <input id="colorWheel" type="color" value="#4f7cff" />
+                </div>
+                <div class="palette-actions">
+                  <button id="addPaletteBtn" type="button">追加</button>
+                  <button id="removePaletteBtn" type="button">削除</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="tool-group">
+              <h3>操作</h3>
+              <div class="btn-row">
+                <button id="fillBtn" type="button">全部塗る</button>
+                <button id="mirrorBtn" type="button">左右反転</button>
+                <button id="clearBtn" type="button">クリア</button>
+              </div>
+              <div class="btn-row" style="margin-top: 8px;">
+                <button id="undoBtn" type="button">戻す</button>
+                <button id="redoBtn" type="button">やり直し</button>
+              </div>
+            </div>
+
+            <div class="tool-group">
+              <h3>エディタ背景</h3>
+              <div class="inline-grid">
+                <div class="field">
+                  <label for="editorBgA">色A</label>
+                  <input id="editorBgA" type="color" value="#141a31" />
+                </div>
+                <div class="field">
+                  <label for="editorBgB">色B</label>
+                  <input id="editorBgB" type="color" value="#0b1022" />
+                </div>
+              </div>
+              <div class="field">
+                <label for="editorGridColor">グリッド線</label>
+                <input id="editorGridColor" type="color" value="#b8c7ff" />
+              </div>
+            </div>
+
+            <div class="tool-group">
+              <h3>見た目</h3>
+              <div class="horizontal-fields">
+                <div class="field">
+                  <label for="frameStyle">フレーム</label>
+                  <select id="frameStyle" class="select">
+                    <option value="soft">やわらか</option>
+                    <option value="game">ゲーム風</option>
+                    <option value="clean">シンプル</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="bgStyle">背景</label>
+                  <select id="bgStyle" class="select">
+                    <option value="night">ネイビー</option>
+                    <option value="mint">ミント</option>
+                    <option value="sunset">サンセット</option>
+                    <option value="mono">モノトーン</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="profile-fields">
+          <div class="field">
+            <label for="nameInput">キャラ名</label>
+            <input id="nameInput" maxlength="40" placeholder="キャラ名を全角15文字まで" />
+          </div>
+          <div class="field">
+            <label for="bioInput">プロフィール</label>
+            <textarea id="bioInput" maxlength="260" placeholder="プロフィールを全角186文字まで"></textarea>
+          </div>
+        </div>
+
+        <div class="preview-box" style="margin-top: 16px;">
+          <canvas id="previewCanvas" width="1600" height="900"></canvas>
+          <div class="btn-row">
+            <button class="primary" id="downloadBtn" type="button">PNG</button>
+            <button id="copyStateBtn" type="button">復元リンク</button>
+          </div>
+          <div class="meta" id="statusText">編集すると自動でプレビュー更新。</div>
+        </div>
+
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const GRID = 16;
+    const SCALE = 32;
+    const STORAGE_KEY = 'pixel-profile-maker-state';
+    const DEFAULT_EDITOR_THEME = { a: '#141a31', b: '#0b1022', grid: '#b8c7ff' };
+    const BASE_PALETTE = [null, '#000000'];
+
+    const pxCanvas = document.getElementById('pixelCanvas');
+    const pxCtx = pxCanvas.getContext('2d');
+    const previewCanvas = document.getElementById('previewCanvas');
+    const previewCtx = previewCanvas.getContext('2d');
+    const paletteEl = document.getElementById('palette');
+    const statusText = document.getElementById('statusText');
+
+    const nameInput = document.getElementById('nameInput');
+    const bioInput = document.getElementById('bioInput');
+    const frameStyle = document.getElementById('frameStyle');
+    const bgStyle = document.getElementById('bgStyle');
+    const colorWheel = document.getElementById('colorWheel');
+    const editorBgAInput = document.getElementById('editorBgA');
+    const editorBgBInput = document.getElementById('editorBgB');
+    const editorGridColorInput = document.getElementById('editorGridColor');
+
+    let palette = [...BASE_PALETTE];
+    let editorTheme = { ...DEFAULT_EDITOR_THEME };
+    let selectedColor = 1;
+    let activeCustomColor = '#4f7cff';
+    let pixels = Array.from({ length: GRID * GRID }, () => 0);
+    let isDrawing = false;
+    let history = [];
+    let future = [];
+
+    function clone(value) {
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function normalizeHex(hex) {
+      if (typeof hex !== 'string') return null;
+      const trimmed = hex.trim().toLowerCase();
+      return /^#[0-9a-f]{6}$/.test(trimmed) ? trimmed : null;
+    }
+
+    function normalizePaletteList(list) {
+      const result = [...BASE_PALETTE];
+      const seen = new Set(['#000000']);
+      if (!Array.isArray(list)) return result;
+      for (let i = 2; i < list.length; i += 1) {
+        const normalized = normalizeHex(list[i]);
+        if (!normalized || seen.has(normalized)) continue;
+        seen.add(normalized);
+        result.push(normalized);
+      }
+      return result;
+    }
+
+    function findPaletteIndexByHex(hex, targetPalette = palette) {
+      const normalized = normalizeHex(hex);
+      if (!normalized) return -1;
+      for (let i = 2; i < targetPalette.length; i += 1) {
+        if (normalizeHex(targetPalette[i]) === normalized) return i;
+      }
+      return -1;
+    }
+
+    function findOrCreateCustomColorIndex(hex, targetPalette = palette) {
+      const normalized = normalizeHex(hex);
+      if (!normalized) return -1;
+      const deduped = normalizePaletteList(targetPalette);
+      targetPalette.length = 0;
+      targetPalette.push(...deduped);
+      const existingIndex = findPaletteIndexByHex(normalized, targetPalette);
+      if (existingIndex !== -1) return existingIndex;
+      targetPalette.push(normalized);
+      return targetPalette.length - 1;
+    }
+
+    function saveHistory() {
+      history.push(clone(pixels));
+      if (history.length > 80) history.shift();
+      future = [];
+    }
+
+    function undo() {
+      if (!history.length) return;
+      future.push(clone(pixels));
+      pixels = history.pop();
+      renderAll();
+    }
+
+    function redo() {
+      if (!future.length) return;
+      history.push(clone(pixels));
+      pixels = future.pop();
+      renderAll();
+    }
+
+    function buildPalette() {
+      paletteEl.innerHTML = '';
+      palette.forEach((color, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'color-btn' + (i === selectedColor ? ' active' : '');
+        btn.dataset.index = String(i);
+        if (color) {
+          btn.style.background = color;
+        } else {
+          btn.dataset.transparent = 'true';
+        }
+        btn.addEventListener('click', () => {
+          selectedColor = i;
+          if (i > 1) {
+            activeCustomColor = palette[i];
+            colorWheel.value = activeCustomColor;
+          }
+          buildPalette();
+        });
+        paletteEl.appendChild(btn);
+      });
+    }
+
+    function getPixelColor(value) {
+      if (value === 0 || value === null) return null;
+      if (typeof value === 'string') return normalizeHex(value);
+      return normalizeHex(palette[value]);
+    }
+
+    function getFillValue() {
+      if (selectedColor === 0) return 0;
+      if (selectedColor === 1) return 1;
+      if (selectedColor === 'custom') return normalizeHex(activeCustomColor) || '#000000';
+      return selectedColor;
+    }
+
+    function drawCheckerboard() {
+      pxCtx.save();
+      pxCtx.fillStyle = editorTheme.b;
+      pxCtx.fillRect(0, 0, pxCanvas.width, pxCanvas.height);
+      for (let y = 0; y < GRID; y += 1) {
+        for (let x = 0; x < GRID; x += 1) {
+          if ((x + y) % 2 === 0) {
+            pxCtx.fillStyle = editorTheme.a;
+            pxCtx.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
+          }
+        }
+      }
+      pxCtx.restore();
+    }
+
+    function drawEditor() {
+      pxCtx.clearRect(0, 0, pxCanvas.width, pxCanvas.height);
+      drawCheckerboard();
+      for (let y = 0; y < GRID; y += 1) {
+        for (let x = 0; x < GRID; x += 1) {
+          const color = getPixelColor(pixels[y * GRID + x]);
+          if (color) {
+            pxCtx.fillStyle = color;
+            pxCtx.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
+          }
+        }
+      }
+      pxCtx.strokeStyle = editorGridColorInput.value + '66';
+      pxCtx.lineWidth = 1;
+      for (let i = 0; i <= GRID; i += 1) {
+        pxCtx.beginPath();
+        pxCtx.moveTo(i * SCALE + 0.5, 0);
+        pxCtx.lineTo(i * SCALE + 0.5, pxCanvas.height);
+        pxCtx.stroke();
+        pxCtx.beginPath();
+        pxCtx.moveTo(0, i * SCALE + 0.5);
+        pxCtx.lineTo(pxCanvas.width, i * SCALE + 0.5);
+        pxCtx.stroke();
+      }
+    }
+
+    function getWrappedLines(ctx, text, maxWidth, maxLines) {
+      const chars = String(text).split('');
+      let line = '';
+      const lines = [];
+      for (const ch of chars) {
+        const test = line + ch;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line);
+          line = ch;
+          if (lines.length >= maxLines) break;
+        } else {
+          line = test;
+        }
+      }
+      if (line && lines.length < maxLines) lines.push(line);
+      return lines;
+    }
+
+    function drawWrappedLines(ctx, lines, x, y, lineHeight) {
+      lines.forEach((value, i) => {
+        ctx.fillText(value, x, y + i * lineHeight);
+      });
+    }
+
+    function drawRoundedRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function drawBackground(ctx, w, h) {
+      const map = {
+        night: ['#0f172a', '#1d2b64'],
+        mint: ['#0f2d28', '#74d3ae'],
+        sunset: ['#4a1d47', '#ff9f68'],
+        mono: ['#1b1b1b', '#8d8d8d']
+      };
+      const [a, b] = map[bgStyle.value] || map.night;
+      const grad = ctx.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, a);
+      grad.addColorStop(1, b);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = 0.08;
+      for (let i = 0; i < 20; i += 1) {
+        ctx.beginPath();
+        ctx.arc((i * 91) % w, (i * 137) % h, 90 + (i % 4) * 26, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawPixelArtTo(ctx, x, y, size) {
+      // ピクセル境界ズレ防止（整数スケールにする）
+      const cell = Math.floor(size / GRID);
+      const actualSize = cell * GRID;
+      const offsetX = x + Math.floor((size - actualSize) / 2);
+      const offsetY = y + Math.floor((size - actualSize) / 2);
+
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+
+      for (let py = 0; py < GRID; py += 1) {
+        for (let px = 0; px < GRID; px += 1) {
+          const color = getPixelColor(pixels[py * GRID + px]);
+          if (color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(offsetX + px * cell, offsetY + py * cell, cell, cell);
+          }
+        }
+      }
+
+      ctx.restore();
+    }
+
+    function getFrameMetrics(size) {
+      if (frameStyle.value === 'soft' || frameStyle.value === 'game') {
+        return { pad: 24, outerSize: size + 48 };
+      }
+      return { pad: 18, outerSize: size + 36 };
+    }
+
+    function drawFrame(ctx, x, y, size) {
+      if (frameStyle.value === 'soft') {
+        ctx.fillStyle = 'rgba(255,255,255,.14)';
+        drawRoundedRect(ctx, x - 24, y - 24, size + 48, size + 48, 36);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,.28)';
+        ctx.lineWidth = 4;
+        drawRoundedRect(ctx, x - 24, y - 24, size + 48, size + 48, 36);
+        ctx.stroke();
+      } else if (frameStyle.value === 'game') {
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(x - 24, y - 24, size + 48, size + 48);
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 8;
+        ctx.strokeRect(x - 24, y - 24, size + 48, size + 48);
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(x - 12, y - 12, size + 24, size + 24);
+      } else {
+        ctx.fillStyle = 'rgba(255,255,255,.12)';
+        drawRoundedRect(ctx, x - 18, y - 18, size + 36, size + 36, 22);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,.3)';
+        ctx.lineWidth = 3;
+        drawRoundedRect(ctx, x - 18, y - 18, size + 36, size + 36, 22);
+        ctx.stroke();
+      }
+    }
+
+    function drawPreview() {
+      const ctx = previewCtx;
+      const w = previewCanvas.width;
+      const h = previewCanvas.height;
+      ctx.clearRect(0, 0, w, h);
+      drawBackground(ctx, w, h);
+
+      const panelX = 44;
+      const panelY = 44;
+      const panelW = w - 88;
+      const panelH = h - 88;
+
+      ctx.fillStyle = 'rgba(9,14,30,.52)';
+      drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 36);
+      ctx.fill();
+
+      const artSize = 460;
+      const frameMetrics = getFrameMetrics(artSize);
+      const frameOuterSize = frameMetrics.outerSize;
+
+      const gapBetween = 60;
+      const textWidth = 900;
+
+      const groupWidth = frameOuterSize + gapBetween + textWidth;
+      const startX = panelX + (panelW - groupWidth) / 2;
+
+      const frameOuterY = panelY + (panelH - frameOuterSize) / 2;
+
+      const artX = startX + frameMetrics.pad;
+      const artY = frameOuterY + frameMetrics.pad;
+
+      const textX = startX + frameOuterSize + gapBetween;
+      const textAreaY = frameOuterY;
+      const textAreaHeight = frameOuterSize;
+
+      drawFrame(ctx, artX, artY, artSize);
+      drawPixelArtTo(ctx, artX, artY, artSize);
+
+      const gap = 20;
+      const titleBoxHeight = 138;
+      const bioBoxHeight = textAreaHeight - titleBoxHeight - gap;
+
+      ctx.fillStyle = 'rgba(255,255,255,.10)';
+      drawRoundedRect(ctx, textX, textAreaY, textWidth, titleBoxHeight, 24);
+      ctx.fill();
+      drawRoundedRect(ctx, textX, textAreaY + titleBoxHeight + gap, textWidth, bioBoxHeight, 24);
+      ctx.fill();
+
+      const titleText = (nameInput.value || 'キャラ名').slice(0, 40);
+      const bioText = (bioInput.value || 'プロフィールがここに入る。').slice(0, 260);
+
+      ctx.fillStyle = '#f8fbff';
+      ctx.font = 'bold 72px system-ui, sans-serif';
+      const titleLines = getWrappedLines(ctx, titleText, textWidth - 56, 2);
+      const titleLineHeight = 84;
+      const titleBlockHeight = Math.max(1, titleLines.length) * titleLineHeight;
+      const titleStartY = textAreaY + Math.max(28, (titleBoxHeight - titleBlockHeight) / 2) + 56;
+      drawWrappedLines(ctx, titleLines, textX + 28, titleStartY, titleLineHeight);
+
+      ctx.fillStyle = 'rgba(255,255,255,.92)';
+      ctx.font = '34px system-ui, sans-serif';
+      const bioLines = getWrappedLines(ctx, bioText, textWidth - 56, 10);
+      const bioLineHeight = 48;
+      const bioStartY = textAreaY + titleBoxHeight + gap + 52;
+      drawWrappedLines(ctx, bioLines, textX + 28, bioStartY, bioLineHeight);
+
+      ctx.fillStyle = 'rgba(255,255,255,.65)';
+      ctx.font = '20px system-ui, sans-serif';
+      ctx.fillText('PIXEL PROFILE MAKER', panelX + 48, panelY + panelH - 40);
+    }
+
+    function renderAll() {
+      drawEditor();
+      drawPreview();
+      persistLocal();
+    }
+
+    function getCellFromEvent(e) {
+      const rect = pxCanvas.getBoundingClientRect();
+      const point = e.touches ? e.touches[0] : e;
+      const x = Math.floor(((point.clientX - rect.left) / rect.width) * GRID);
+      const y = Math.floor(((point.clientY - rect.top) / rect.height) * GRID);
+      return {
+        x: Math.max(0, Math.min(GRID - 1, x)),
+        y: Math.max(0, Math.min(GRID - 1, y))
+      };
+    }
+
+    function paintAtEvent(e) {
+      const { x, y } = getCellFromEvent(e);
+      pixels[y * GRID + x] = getFillValue();
+      renderAll();
+    }
+
+    function cleanPixelsByPalette() {
+      palette = normalizePaletteList(palette);
+      pixels = pixels.map((value) => {
+        if (typeof value === 'string') return normalizeHex(value) || 0;
+        return Number.isInteger(value) && value >= 0 && value < palette.length ? value : 0;
+      });
+      if (selectedColor !== 'custom' && (!Number.isInteger(selectedColor) || selectedColor >= palette.length)) {
+        selectedColor = 1;
+      }
+      activeCustomColor = normalizeHex(activeCustomColor) || '#4f7cff';
+    }
+
+    function encodeState() {
+      const payload = {
+        p: pixels,
+        n: nameInput.value,
+        b: bioInput.value,
+        f: frameStyle.value,
+        g: bgStyle.value,
+        pl: normalizePaletteList(palette),
+        et: editorTheme,
+        ac: activeCustomColor,
+        sc: selectedColor
+      };
+      return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    }
+
+    function decodeState(str) {
+      try {
+        const payload = JSON.parse(decodeURIComponent(escape(atob(str))));
+        if (Array.isArray(payload.p) && payload.p.length === GRID * GRID) {
+          pixels = payload.p.map((value) => {
+            if (typeof value === 'string') return normalizeHex(value) || 0;
+            return Number(value) || 0;
+          });
+        }
+        nameInput.value = payload.n || '';
+        bioInput.value = payload.b || '';
+        if (payload.f) frameStyle.value = payload.f;
+        if (payload.g) bgStyle.value = payload.g;
+        if (Array.isArray(payload.pl)) palette = normalizePaletteList(payload.pl);
+        if (payload.et && payload.et.a && payload.et.b && payload.et.grid) {
+          editorTheme = {
+            a: normalizeHex(payload.et.a) || DEFAULT_EDITOR_THEME.a,
+            b: normalizeHex(payload.et.b) || DEFAULT_EDITOR_THEME.b,
+            grid: normalizeHex(payload.et.grid) || DEFAULT_EDITOR_THEME.grid
+          };
+        }
+        if (typeof payload.ac === 'string') activeCustomColor = normalizeHex(payload.ac) || '#4f7cff';
+        if (payload.sc === 'custom' || Number.isInteger(payload.sc)) selectedColor = payload.sc;
+        cleanPixelsByPalette();
+      } catch (err) {
+        console.warn('state decode failed', err);
+      }
+    }
+
+    function persistLocal() {
+      localStorage.setItem(STORAGE_KEY, encodeState());
+    }
+
+    function loadInitialState() {
+      const shared = new URL(location.href).searchParams.get('s');
+      if (shared) {
+        decodeState(shared);
+        return;
+      }
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) decodeState(saved);
+    }
+
+    function applySeedIfEmpty() {
+      if (!pixels.every((v) => v === 0)) return;
+      const skinIndex = findOrCreateCustomColorIndex('#f2c6a0');
+      const seed = [
+        [5,3],[6,3],[7,3],[8,3],[9,3],[10,3],
+        [4,4],[5,4],[6,4],[7,4],[8,4],[9,4],[10,4],[11,4],
+        [4,5],[5,5],[6,5],[7,5],[8,5],[9,5],[10,5],[11,5],
+        [4,6],[5,6],[6,6],[7,6],[8,6],[9,6],[10,6],[11,6],
+        [5,7],[6,7],[9,7],[10,7],
+        [6,9],[7,10],[8,10],[9,9],
+        [6,11],[7,11],[8,11],[9,11]
+      ];
+      seed.forEach(([x, y], i) => {
+        pixels[y * GRID + x] = i < 30 ? skinIndex : 1;
+      });
+      nameInput.value = 'キャラ名を全角15文字まで';
+      bioInput.value = '説明などを全角186文字まで';
+      selectedColor = 1;
+    }
+
+    pxCanvas.addEventListener('mousedown', (e) => {
+      saveHistory();
+      isDrawing = true;
+      paintAtEvent(e);
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDrawing = false;
+    });
+
+    pxCanvas.addEventListener('mousemove', (e) => {
+      if (isDrawing) paintAtEvent(e);
+    });
+
+    pxCanvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      saveHistory();
+      isDrawing = true;
+      paintAtEvent(e);
+    }, { passive: false });
+
+    pxCanvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (isDrawing) paintAtEvent(e);
+    }, { passive: false });
+
+    window.addEventListener('touchend', () => {
+      isDrawing = false;
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      saveHistory();
+      pixels = pixels.map(() => 0);
+      renderAll();
+    });
+
+    document.getElementById('fillBtn').addEventListener('click', () => {
+      saveHistory();
+      const fillValue = getFillValue();
+      pixels = pixels.map(() => fillValue);
+      renderAll();
+    });
+
+    document.getElementById('mirrorBtn').addEventListener('click', () => {
+      saveHistory();
+      const next = clone(pixels);
+      for (let y = 0; y < GRID; y += 1) {
+        for (let x = 0; x < GRID; x += 1) {
+          next[y * GRID + x] = pixels[y * GRID + (GRID - 1 - x)];
+        }
+      }
+      pixels = next;
+      renderAll();
+    });
+
+    document.getElementById('undoBtn').addEventListener('click', undo);
+    document.getElementById('redoBtn').addEventListener('click', redo);
+
+    document.getElementById('addPaletteBtn').addEventListener('click', () => {
+      const normalized = normalizeHex(activeCustomColor || colorWheel.value);
+      if (!normalized) return;
+      const beforeLength = palette.length;
+      findOrCreateCustomColorIndex(normalized);
+      palette = normalizePaletteList(palette);
+      selectedColor = findPaletteIndexByHex(normalized);
+      buildPalette();
+      renderAll();
+      statusText.textContent = palette.length === beforeLength ? '同じ色がもうある。' : '色を追加した。';
+    });
+
+    document.getElementById('removePaletteBtn').addEventListener('click', () => {
+      if (!Number.isInteger(selectedColor) || selectedColor <= 1) {
+        statusText.textContent = 'この色は削除できない。';
+        return;
+      }
+      palette.splice(selectedColor, 1);
+      pixels = pixels.map((value) => {
+        if (typeof value !== 'number') return value;
+        if (value === selectedColor) return 0;
+        if (value > selectedColor) return value - 1;
+        return value;
+      });
+      palette = normalizePaletteList(palette);
+      selectedColor = 1;
+      buildPalette();
+      renderAll();
+      statusText.textContent = '色を削除した。';
+    });
+
+    colorWheel.addEventListener('input', () => {
+      const normalized = normalizeHex(colorWheel.value);
+      activeCustomColor = normalized || '#4f7cff';
+      const existing = findPaletteIndexByHex(activeCustomColor);
+      selectedColor = existing !== -1 ? existing : 'custom';
+      buildPalette();
+      renderAll();
+    });
+
+    [editorBgAInput, editorBgBInput, editorGridColorInput].forEach((el) => {
+      el.addEventListener('input', () => {
+        editorTheme = {
+          a: normalizeHex(editorBgAInput.value) || DEFAULT_EDITOR_THEME.a,
+          b: normalizeHex(editorBgBInput.value) || DEFAULT_EDITOR_THEME.b,
+          grid: normalizeHex(editorGridColorInput.value) || DEFAULT_EDITOR_THEME.grid
+        };
+        renderAll();
+      });
+    });
+
+    [nameInput, bioInput, frameStyle, bgStyle].forEach((el) => {
+      el.addEventListener('input', renderAll);
+      el.addEventListener('change', renderAll);
+    });
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      drawPreview();
+      previewCanvas.toBlob((blob) => {
+        if (!blob) return;
+        const a = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = 'pixel-profile-16x9.png';
+        a.click();
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    });
+
+    document.getElementById('copyStateBtn').addEventListener('click', async () => {
+      const url = new URL(location.href);
+      url.searchParams.set('s', encodeState());
+      try {
+        await navigator.clipboard.writeText(url.toString());
+        statusText.textContent = '復元リンクをコピーした。';
+      } catch {
+        statusText.textContent = 'コピーに失敗。';
+      }
+    });
+
+    function runSelfTests() {
+      function assert(condition, message) {
+        if (!condition) throw new Error(message);
+      }
+      const isolatedPalette = normalizePaletteList([null, '#000000', '#123456', '#123456', '#abcdef']);
+      assert(previewCanvas.width === 1600 && previewCanvas.height === 900, '16:9');
+      assert(isolatedPalette.length === 4, '重複除去');
+      const tempPalette = [...BASE_PALETTE];
+      const index = findOrCreateCustomColorIndex('#123456', tempPalette);
+      assert(index >= 2, '色追加');
+      assert(findOrCreateCustomColorIndex('#123456', tempPalette) === index, '重複追加しない');
+      const testCtx = previewCtx;
+      testCtx.font = 'bold 72px system-ui, sans-serif';
+      const titleLines = getWrappedLines(testCtx, 'テストタイトル', 900, 2);
+      assert(titleLines.length >= 1, 'タイトル折り返し行を取得できる');
+      testCtx.font = '34px system-ui, sans-serif';
+      const bioLines = getWrappedLines(testCtx, 'あいうえお'.repeat(20), 900, 10);
+      assert(bioLines.length <= 10, 'プロフィール最大行数を守る');
+      const frameMetrics = getFrameMetrics(460);
+      const titleBoxHeight = 138;
+      const gap = 20;
+      const bioBoxHeight = frameMetrics.outerSize - titleBoxHeight - gap;
+      assert(titleBoxHeight + gap + bioBoxHeight === frameMetrics.outerSize, 'タイトルとプロフィールの合計高さがフレーム高さに一致する');
+    }
+
+    loadInitialState();
+    cleanPixelsByPalette();
+    // applySeedIfEmpty(); // 初期ドット絵を無効化
+    colorWheel.value = activeCustomColor;
+    buildPalette();
+    renderAll();
+    runSelfTests();
+  </script>
+</body>
+</html>
